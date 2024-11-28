@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #define NUM_PASSES 3
 #define MAX_PATH_COMPONENTS 256
@@ -165,7 +164,7 @@ void get_short_name(DirEntry *dir_entry, char *short_name)
 
 int match_filename(const char *filename1, const char *filename2)
 {
-    return strcasecmp(filename1, filename2) == 0;
+    return strcmp(filename1, filename2) == 0;
 }
 
 int split_path(const char *path, char components[][256])
@@ -212,11 +211,11 @@ void read_long_name_entries(FILE *fat_file, unsigned int offset, char *long_name
     strcpy(long_name, temp_name);
 }
 
-unsigned int find_file_in_directory(FILE *fat_file, const char *filename,
-                                    unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
+unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsigned short sector_size,
+                                    unsigned short reserved_sectors, unsigned int fat_size,
                                     unsigned int cluster, unsigned short sec_per_clus,
-                                    FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset,
-                                    int traverse_subdirs)
+                                    FATBootSector *boot_sector, unsigned int *file_size,
+                                    unsigned int *dir_entry_offset, int traverse_subdirs)
 {
     unsigned int cluster_size = sector_size * sec_per_clus;
     unsigned int data_start = (reserved_sectors + boot_sector->fats * fat_size) * sector_size;
@@ -264,10 +263,11 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename,
                 if (dir_entry.attr & 0x10 && !(dir_entry.attr & 0x08) && traverse_subdirs)
                 {
                     unsigned int subdir_cluster = (read_le16(dir_entry.fstClusHI) << 16) | read_le16(dir_entry.fstClusLO);
-                    if (strncmp((char*)dir_entry.name, ".          ", 11) != 0 && strncmp((char*)dir_entry.name, "..         ", 11) != 0)
+                    if (strncmp((char *)dir_entry.name, ".          ", 11) != 0 && strncmp((char *)dir_entry.name, "..         ", 11) != 0)
                     {
                         unsigned int result = find_file_in_directory(fat_file, filename, sector_size,
-                                                                     reserved_sectors, fat_size, subdir_cluster, sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
+                                                                     reserved_sectors, fat_size, subdir_cluster,
+                                                                     sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
                         if (result != 0)
                             return result;
                     }
@@ -289,10 +289,11 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename,
                 if (dir_entry.attr & 0x10 && !(dir_entry.attr & 0x08) && traverse_subdirs)
                 {
                     unsigned int subdir_cluster = (read_le16(dir_entry.fstClusHI) << 16) | read_le16(dir_entry.fstClusLO);
-                    if (strncmp((char*)dir_entry.name, ".          ", 11) != 0 && strncmp((char*)dir_entry.name, "..         ", 11) != 0)
+                    if (strncmp((char *)dir_entry.name, ".          ", 11) != 0 && strncmp((char *)dir_entry.name, "..         ", 11) != 0)
                     {
                         unsigned int result = find_file_in_directory(fat_file, filename, sector_size,
-                                                                     reserved_sectors, fat_size, subdir_cluster, sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
+                                                                     reserved_sectors, fat_size, subdir_cluster,
+                                                                     sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
                         if (result != 0)
                             return result;
                     }
@@ -314,7 +315,7 @@ unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
     for (int i = 0; i < path_count; i++)
     {
         unsigned int found_cluster = find_file_in_directory(fat_file, path[i], sector_size, reserved_sectors, fat_size,
-                                                          current_cluster, sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
+                                                            current_cluster, sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
         if (found_cluster == 0)
             return 0;
         current_cluster = found_cluster;
@@ -382,7 +383,8 @@ void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int 
     printf("\nEOF\n");
 }
 
-void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster, unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename)
+void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
+                 unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename)
 {
     unsigned short sector_size = read_le16(boot_sector->sector_size);
     unsigned int fat_size = boot_sector->fat32.length;
@@ -487,7 +489,6 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     printf("\n=== Deleting Directory Entry ===\n");
     unsigned int offset = dir_entry_offset;
     DirEntry dir_entry;
-    int entry_count = 0;
     fseek(fat_file, offset, SEEK_SET);
     fread(&dir_entry, sizeof(DirEntry), 1, fat_file);
     if ((dir_entry.attr & 0x0F) == 0x0F)
@@ -591,7 +592,8 @@ int main(int argc, char *argv[])
     unsigned int file_size;
     unsigned int dir_entry_offset;
     unsigned int start_cluster = find_file_by_path(fat_file, path_components, path_count,
-                                                  sector_size, reserved_sectors, fat_size, sec_per_clus, &boot_sector, &file_size, &dir_entry_offset);
+                                                   sector_size, reserved_sectors, fat_size,
+                                                   sec_per_clus, &boot_sector, &file_size, &dir_entry_offset);
     if (start_cluster != 0)
     {
         printf("File \"%s\" found, starting deletion...\n", file_path);
