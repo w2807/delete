@@ -427,17 +427,17 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     unsigned char dir_entry_content_before[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_before, 1, 32, fat_file);
-    PRINT_DEBUG("\n=== Directory Entry Before Deletion ===\n");
+    PRINT_DEBUG("\n Directory Entry Before Deletion \n");
     print_dir_entry(dir_entry_content_before);
-    PRINT_DEBUG("\n=== File Content Before Deletion ===\n");
+    PRINT_DEBUG("\n File Content Before Deletion \n");
     read_file_content(fat_file, boot_sector, start_cluster, file_size);
-    PRINT_DEBUG("\n=== FAT Table Before Deletion ===\n");
+    PRINT_DEBUG("\n FAT Table Before Deletion \n");
     for (int i = 0; i < chain_length; i++)
     {
         PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
-    PRINT_DEBUG("\n=== Overwriting File Data ===\n");
+    PRINT_DEBUG("\n Overwriting File Data \n");
     unsigned int bytes_to_wipe = file_size;
     unsigned int wiped_bytes = 0;
     for (int pass = 1; pass <= NUM_PASSES; pass++)
@@ -476,15 +476,15 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     }
     fclose(urandom);
     PRINT_DEBUG("Data overwriting completed.\n");
-    PRINT_DEBUG("\n=== File Content After Overwriting ===\n");
+    PRINT_DEBUG("\nFile Content After Overwriting:\n");
     read_file_content(fat_file, boot_sector, start_cluster, file_size);
-    PRINT_DEBUG("\n=== FAT Table After Overwriting ===\n");
+    PRINT_DEBUG("\n:FAT Table After Overwriting:\n");
     for (int i = 0; i < chain_length; i++)
     {
         PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
-    PRINT_DEBUG("\n=== Clearing FAT Entries ===\n");
+    PRINT_DEBUG("\nClear FAT Entries:\n");
     for (int i = 0; i < chain_length; i++)
     {
         unsigned int fat_offset = fat_start + cluster_chain[i] * 4;
@@ -496,7 +496,7 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
             PRINT_DEBUG("FAT[%u] in FAT%d set to 0x00000000\n", cluster_chain[i], j + 1);
         }
     }
-    PRINT_DEBUG("\n=== Deleting Directory Entry ===\n");
+    PRINT_DEBUG("\nDeleting Directory Entry:\n");
     unsigned int offset = dir_entry_offset;
     DirEntry dir_entry;
     fseek(fat_file, offset, SEEK_SET);
@@ -521,16 +521,16 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
             fseek(fat_file, offset, SEEK_SET);
             if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
             {
-                perror("Failed to write delete marker");
+                perror("Failed to delete");
                 break;
             }
             unsigned char zeros[31] = {0};
             if (fwrite(zeros, 1, 31, fat_file) != 31)
             {
-                perror("Failed to write zero bytes");
+                perror("Failed to write zero");
                 break;
             }
-            PRINT_DEBUG("LFN directory entry at offset %u marked as deleted.\n", offset);
+            PRINT_DEBUG("LFN directory entry at offset %u deleted.\n", offset);
         } while ((ord & 0x40) == 0 && (dir_entry.attr == 0x0F));
         fseek(fat_file, dir_entry_offset, SEEK_SET);
     }
@@ -538,20 +538,20 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
     {
-        perror("Failed to write delete marker");
+        perror("Failed to delete");
     }
     unsigned char zeros[31] = {0};
     if (fwrite(zeros, 1, 31, fat_file) != 31)
     {
-        perror("Failed to write zero bytes");
+        perror("Failed to write zero");
     }
-    PRINT_DEBUG("Primary directory entry at offset %u marked as deleted.\n", dir_entry_offset);
+    PRINT_DEBUG("Primary directory entry at offset %u deleted.\n", dir_entry_offset);
     unsigned char dir_entry_content_after[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_after, 1, 32, fat_file);
-    PRINT_DEBUG("\n=== Directory Entry After Deletion ===\n");
+    PRINT_DEBUG("\nDirectory Entry After Deletion:\n");
     print_dir_entry(dir_entry_content_after);
-    PRINT_DEBUG("\n=== FAT Table After Deletion ===\n");
+    PRINT_DEBUG("\nFAT Table After Deletion:\n");
     for (int i = 0; i < chain_length; i++)
     {
         PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
@@ -590,8 +590,8 @@ int main(int argc, char *argv[])
     PRINT_DEBUG("Sectors per cluster: %u\n", boot_sector.sec_per_clus);
     PRINT_DEBUG("Reserved sectors: %u\n", boot_sector.reserved);
     PRINT_DEBUG("Number of FATs: %u\n", boot_sector.fats);
-    PRINT_DEBUG("Total sectors (32-bit): %u\n", boot_sector.total_sect);
-    PRINT_DEBUG("FAT size (32-bit): %u\n", boot_sector.fat32.length);
+    PRINT_DEBUG("Total sectors: %u\n", boot_sector.total_sect);
+    PRINT_DEBUG("FAT size: %u\n", boot_sector.fat32.length);
     PRINT_DEBUG("Root directory cluster: %u\n", boot_sector.fat32.root_cluster);
     PRINT_DEBUG("Volume label: %.11s\n", boot_sector.fat32.vol_label);
     PRINT_DEBUG("File system type: %.8s\n", boot_sector.fat32.fs_type);
