@@ -427,17 +427,17 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     unsigned char dir_entry_content_before[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_before, 1, 32, fat_file);
-    PRINT_DEBUG("\n Directory Entry Before Deletion \n");
+    PRINT_DEBUG("\nDirectory Entry Before Deletion:\n");
     print_dir_entry(dir_entry_content_before);
-    PRINT_DEBUG("\n File Content Before Deletion \n");
+    PRINT_DEBUG("\nFile Content Before Deletion:\n");
     read_file_content(fat_file, boot_sector, start_cluster, file_size);
-    PRINT_DEBUG("\n FAT Table Before Deletion \n");
+    PRINT_DEBUG("\nFAT Table Before Deletion:\n");
     for (int i = 0; i < chain_length; i++)
     {
         PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
-    PRINT_DEBUG("\n Overwriting File Data \n");
+    PRINT_DEBUG("\nOverwriting File Data:\n");
     unsigned int bytes_to_wipe = file_size;
     unsigned int wiped_bytes = 0;
     for (int pass = 1; pass <= NUM_PASSES; pass++)
