@@ -6,9 +6,9 @@
 #define MAX_PATH_COMPONENTS 256
 
 #ifdef DEBUG
-    #define PRINT_DEBUG(...) printf(__VA_ARGS__)
+#define PRINT_DEBUG(...) printf(__VA_ARGS__)
 #else
-    #define PRINT_DEBUG(...)
+#define PRINT_DEBUG(...)
 #endif
 
 typedef struct
