@@ -5,6 +5,12 @@
 #define NUM_PASSES 3
 #define MAX_PATH_COMPONENTS 256
 
+#ifdef DEBUG
+    #define PRINT_DEBUG(...) printf(__VA_ARGS__)
+#else
+    #define PRINT_DEBUG(...)
+#endif
+
 typedef struct
 {
     unsigned char ignored[3];
@@ -109,17 +115,17 @@ void print_hex(const unsigned char *buffer, size_t size)
 {
     for (size_t i = 0; i < size; i++)
     {
-        printf("%02X ", buffer[i]);
+        PRINT_DEBUG("%02X ", buffer[i]);
         if ((i + 1) % 16 == 0)
-            printf("\n");
+            PRINT_DEBUG("\n");
     }
     if (size % 16 != 0)
-        printf("\n");
+        PRINT_DEBUG("\n");
 }
 
 void print_dir_entry(const unsigned char *entry)
 {
-    printf("Directory Entry Content:\n");
+    PRINT_DEBUG("Directory Entry Content:\n");
     print_hex(entry, 32);
 }
 
@@ -131,8 +137,10 @@ void print_fat_entries(FILE *fat_file, unsigned int fat_start, unsigned int fat_
     {
         fseek(fat_file, fat_offset + i * fat_size * sector_size, SEEK_SET);
         fread(fat_entry_bytes, 1, 4, fat_file);
+#ifdef DEBUG
         unsigned int fat_entry = read_le32(fat_entry_bytes) & 0x0FFFFFFF;
-        printf("FAT[%u] in FAT%d: %08X\n", cluster, i + 1, fat_entry);
+#endif
+        PRINT_DEBUG("FAT[%u] in FAT%d: %08X\n", cluster, i + 1, fat_entry);
     }
 }
 
@@ -334,7 +342,7 @@ void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int 
     unsigned int cluster_size = boot_sector->sec_per_clus * sector_size;
     unsigned int next_cluster = start_cluster;
     unsigned int bytes_read = 0;
-    printf("File Content\n");
+    PRINT_DEBUG("File Content\n");
     while (next_cluster < 0x0FFFFFF8 && bytes_read < file_size)
     {
         unsigned int cluster_offset = data_start + (next_cluster - 2) * cluster_size;
@@ -355,7 +363,9 @@ void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int 
                 free(buffer);
                 return;
             }
+#ifdef DEBUG
             fwrite(buffer, 1, read, stdout);
+#endif
             free(buffer);
             bytes_read += read;
         }
@@ -380,7 +390,7 @@ void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int 
         unsigned int fat_entry = read_le32(fat_entry_bytes) & 0x0FFFFFFF;
         next_cluster = fat_entry;
     }
-    printf("\nEOF\n");
+    PRINT_DEBUG("\nEOF\n");
 }
 
 void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
@@ -417,22 +427,22 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     unsigned char dir_entry_content_before[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_before, 1, 32, fat_file);
-    printf("\n=== Directory Entry Before Deletion ===\n");
+    PRINT_DEBUG("\n=== Directory Entry Before Deletion ===\n");
     print_dir_entry(dir_entry_content_before);
-    printf("\n=== File Content Before Deletion ===\n");
+    PRINT_DEBUG("\n=== File Content Before Deletion ===\n");
     read_file_content(fat_file, boot_sector, start_cluster, file_size);
-    printf("\n=== FAT Table Before Deletion ===\n");
+    PRINT_DEBUG("\n=== FAT Table Before Deletion ===\n");
     for (int i = 0; i < chain_length; i++)
     {
-        printf("Cluster %u:\n", cluster_chain[i]);
+        PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
-    printf("\n=== Overwriting File Data ===\n");
+    PRINT_DEBUG("\n=== Overwriting File Data ===\n");
     unsigned int bytes_to_wipe = file_size;
     unsigned int wiped_bytes = 0;
     for (int pass = 1; pass <= NUM_PASSES; pass++)
     {
-        printf("Overwriting pass %d/%d\n", pass, NUM_PASSES);
+        PRINT_DEBUG("Overwriting pass %d/%d\n", pass, NUM_PASSES);
         for (int i = 0; i < chain_length && wiped_bytes < bytes_to_wipe; i++)
         {
             unsigned int cluster_offset = data_start + (cluster_chain[i] - 2) * cluster_size;
@@ -465,16 +475,16 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
         wiped_bytes = 0;
     }
     fclose(urandom);
-    printf("Data overwriting completed.\n");
-    printf("\n=== File Content After Overwriting ===\n");
+    PRINT_DEBUG("Data overwriting completed.\n");
+    PRINT_DEBUG("\n=== File Content After Overwriting ===\n");
     read_file_content(fat_file, boot_sector, start_cluster, file_size);
-    printf("\n=== FAT Table After Overwriting ===\n");
+    PRINT_DEBUG("\n=== FAT Table After Overwriting ===\n");
     for (int i = 0; i < chain_length; i++)
     {
-        printf("Cluster %u:\n", cluster_chain[i]);
+        PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
-    printf("\n=== Clearing FAT Entries ===\n");
+    PRINT_DEBUG("\n=== Clearing FAT Entries ===\n");
     for (int i = 0; i < chain_length; i++)
     {
         unsigned int fat_offset = fat_start + cluster_chain[i] * 4;
@@ -483,10 +493,10 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
         {
             fseek(fat_file, fat_offset + j * fat_size * sector_size, SEEK_SET);
             fwrite(zero, 1, 4, fat_file);
-            printf("FAT[%u] in FAT%d set to 0x00000000\n", cluster_chain[i], j + 1);
+            PRINT_DEBUG("FAT[%u] in FAT%d set to 0x00000000\n", cluster_chain[i], j + 1);
         }
     }
-    printf("\n=== Deleting Directory Entry ===\n");
+    PRINT_DEBUG("\n=== Deleting Directory Entry ===\n");
     unsigned int offset = dir_entry_offset;
     DirEntry dir_entry;
     fseek(fat_file, offset, SEEK_SET);
@@ -520,7 +530,7 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
                 perror("Failed to write zero bytes");
                 break;
             }
-            printf("LFN directory entry at offset %u marked as deleted.\n", offset);
+            PRINT_DEBUG("LFN directory entry at offset %u marked as deleted.\n", offset);
         } while ((ord & 0x40) == 0 && (dir_entry.attr == 0x0F));
         fseek(fat_file, dir_entry_offset, SEEK_SET);
     }
@@ -535,16 +545,16 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     {
         perror("Failed to write zero bytes");
     }
-    printf("Primary directory entry at offset %u marked as deleted.\n", dir_entry_offset);
+    PRINT_DEBUG("Primary directory entry at offset %u marked as deleted.\n", dir_entry_offset);
     unsigned char dir_entry_content_after[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_after, 1, 32, fat_file);
-    printf("\n=== Directory Entry After Deletion ===\n");
+    PRINT_DEBUG("\n=== Directory Entry After Deletion ===\n");
     print_dir_entry(dir_entry_content_after);
-    printf("\n=== FAT Table After Deletion ===\n");
+    PRINT_DEBUG("\n=== FAT Table After Deletion ===\n");
     for (int i = 0; i < chain_length; i++)
     {
-        printf("Cluster %u:\n", cluster_chain[i]);
+        PRINT_DEBUG("Cluster %u:\n", cluster_chain[i]);
         print_fat_entries(fat_file, fat_start, fat_size, fats, cluster_chain[i], sector_size);
     }
     printf("\nFile \"%s\" has been completely deleted.\n", target_filename);
@@ -554,7 +564,7 @@ int main(int argc, char *argv[])
 {
     if (argc != 3)
     {
-        printf("Usage: %s <device path> <file path>\n", argv[0]);
+        printf("use: %s <device path> <file path>\n", argv[0]);
         return 1;
     }
     char *device_path = argv[1];
@@ -569,22 +579,22 @@ int main(int argc, char *argv[])
     int path_count = split_path(file_path, path_components);
     if (path_count == 0)
     {
-        printf("Invalid file path.\n");
+        PRINT_DEBUG("Invalid file path.\n");
         fclose(fat_file);
         return 1;
     }
     FATBootSector boot_sector;
     fread(&boot_sector, sizeof(FATBootSector), 1, fat_file);
-    printf("System ID: %.8s\n", boot_sector.system_id);
-    printf("Bytes per sector: %u\n", read_le16(boot_sector.sector_size));
-    printf("Sectors per cluster: %u\n", boot_sector.sec_per_clus);
-    printf("Reserved sectors: %u\n", boot_sector.reserved);
-    printf("Number of FATs: %u\n", boot_sector.fats);
-    printf("Total sectors (32-bit): %u\n", boot_sector.total_sect);
-    printf("FAT size (32-bit): %u\n", boot_sector.fat32.length);
-    printf("Root directory cluster: %u\n", boot_sector.fat32.root_cluster);
-    printf("Volume label: %.11s\n", boot_sector.fat32.vol_label);
-    printf("File system type: %.8s\n", boot_sector.fat32.fs_type);
+    PRINT_DEBUG("System ID: %.8s\n", boot_sector.system_id);
+    PRINT_DEBUG("Bytes per sector: %u\n", read_le16(boot_sector.sector_size));
+    PRINT_DEBUG("Sectors per cluster: %u\n", boot_sector.sec_per_clus);
+    PRINT_DEBUG("Reserved sectors: %u\n", boot_sector.reserved);
+    PRINT_DEBUG("Number of FATs: %u\n", boot_sector.fats);
+    PRINT_DEBUG("Total sectors (32-bit): %u\n", boot_sector.total_sect);
+    PRINT_DEBUG("FAT size (32-bit): %u\n", boot_sector.fat32.length);
+    PRINT_DEBUG("Root directory cluster: %u\n", boot_sector.fat32.root_cluster);
+    PRINT_DEBUG("Volume label: %.11s\n", boot_sector.fat32.vol_label);
+    PRINT_DEBUG("File system type: %.8s\n", boot_sector.fat32.fs_type);
     unsigned short sector_size = read_le16(boot_sector.sector_size);
     unsigned short reserved_sectors = boot_sector.reserved;
     unsigned int fat_size = boot_sector.fat32.length;
@@ -596,7 +606,7 @@ int main(int argc, char *argv[])
                                                    sec_per_clus, &boot_sector, &file_size, &dir_entry_offset);
     if (start_cluster != 0)
     {
-        printf("File \"%s\" found, starting deletion...\n", file_path);
+        printf("File \"%s\" found\n", file_path);
         delete_file(fat_file, &boot_sector, start_cluster, file_size, dir_entry_offset, file_path);
     }
     else
