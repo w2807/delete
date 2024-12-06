@@ -83,34 +83,6 @@ unsigned int read_le32(const unsigned char *bytes)
     return (unsigned int)(bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24));
 }
 
-void utf16le_to_utf8(const unsigned char *utf16le_str, int utf16le_len, char *utf8_str, int utf8_len)
-{
-    int i = 0, j = 0;
-    while (i + 1 < utf16le_len && j < utf8_len - 1)
-    {
-        unsigned short unicode_char = utf16le_str[i] | (utf16le_str[i + 1] << 8);
-        if (unicode_char == 0xFFFF || unicode_char == 0x0000)
-            break;
-        if (unicode_char < 0x80)
-        {
-            utf8_str[j++] = unicode_char & 0x7F;
-        }
-        else if (unicode_char < 0x800)
-        {
-            utf8_str[j++] = 0xC0 | ((unicode_char >> 6) & 0x1F);
-            utf8_str[j++] = 0x80 | (unicode_char & 0x3F);
-        }
-        else
-        {
-            utf8_str[j++] = 0xE0 | ((unicode_char >> 12) & 0x0F);
-            utf8_str[j++] = 0x80 | ((unicode_char >> 6) & 0x3F);
-            utf8_str[j++] = 0x80 | (unicode_char & 0x3F);
-        }
-        i += 2;
-    }
-    utf8_str[j] = '\0';
-}
-
 void print_hex(const unsigned char *buffer, size_t size)
 {
     for (size_t i = 0; i < size; i++)
@@ -192,31 +164,6 @@ int split_path(const char *path, char components[][256])
         token = strtok(NULL, "/");
     }
     return count;
-}
-
-void read_long_name_entries(FILE *fat_file, unsigned int offset, char *long_name)
-{
-    LongDirEntry ldir;
-    char temp_name[256] = {0};
-    int entry_count = 0;
-    while (1)
-    {
-        fseek(fat_file, offset - entry_count * sizeof(LongDirEntry), SEEK_SET);
-        fread(&ldir, sizeof(LongDirEntry), 1, fat_file);
-        if (ldir.attr != 0x0F)
-            break;
-        unsigned char utf16le_name[26];
-        memcpy(utf16le_name, ldir.name1, 10);
-        memcpy(utf16le_name + 10, ldir.name2, 12);
-        memcpy(utf16le_name + 22, ldir.name3, 4);
-        char utf8_name[14];
-        utf16le_to_utf8(utf16le_name, 26, utf8_name, 14);
-        strcat(temp_name, utf8_name);
-        entry_count++;
-        if (ldir.ord & 0x40)
-            break;
-    }
-    strcpy(long_name, temp_name);
 }
 
 unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsigned short sector_size,
