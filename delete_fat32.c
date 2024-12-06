@@ -11,6 +11,26 @@
 #define PRINT_DEBUG(...)
 #endif
 
+unsigned short read_le16(const unsigned char *bytes);
+unsigned int read_le32(const unsigned char *bytes);
+void print_hex(const unsigned char *buffer, size_t size);
+void print_dir_entry(const unsigned char *entry);
+void print_fat_entries(FILE *fat_file, unsigned int fat_start, unsigned int fat_size, unsigned char fats, unsigned int cluster, unsigned short sector_size);
+void get_short_name(DirEntry *dir_entry, char *short_name);
+int match_filename(const char *filename1, const char *filename2);
+int split_path(const char *path, char components[][256]);
+unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsigned short sector_size,
+                                    unsigned short reserved_sectors, unsigned int fat_size,
+                                    unsigned int cluster, unsigned short sec_per_clus,
+                                    FATBootSector *boot_sector, unsigned int *file_size,
+                                    unsigned int *dir_entry_offset, int traverse_subdirs);
+unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
+                               unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
+                               unsigned short sec_per_clus, FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset);
+void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster, unsigned int file_size);
+void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
+                 unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename);
+
 typedef struct
 {
     unsigned char ignored[3];
