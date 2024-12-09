@@ -528,7 +528,7 @@ int main(int argc, char *argv[])
 {
     if (argc != 3)
     {
-        printf("use: %s <device path> <file path>\n", argv[0]);
+        printf("Usage: %s <device path> <file path>\n", argv[0]);
         return 1;
     }
     char *device_path = argv[1];
@@ -543,7 +543,7 @@ int main(int argc, char *argv[])
     int path_count = split_path(file_path, path_components);
     if (path_count == 0)
     {
-        PRINT_DEBUG("Invalid file path.\n");
+        printf("Invalid file path.\n");
         fclose(fat_file);
         return 1;
     }
