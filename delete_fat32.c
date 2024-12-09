@@ -11,26 +11,6 @@
 #define PRINT_DEBUG(...)
 #endif
 
-unsigned short read_le16(const unsigned char *bytes);
-unsigned int read_le32(const unsigned char *bytes);
-void print_hex(const unsigned char *buffer, size_t size);
-void print_dir_entry(const unsigned char *entry);
-void print_fat_entries(FILE *fat_file, unsigned int fat_start, unsigned int fat_size, unsigned char fats, unsigned int cluster, unsigned short sector_size);
-void get_short_name(DirEntry *dir_entry, char *short_name);
-int match_filename(const char *filename1, const char *filename2);
-int split_path(const char *path, char components[][256]);
-unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsigned short sector_size,
-                                    unsigned short reserved_sectors, unsigned int fat_size,
-                                    unsigned int cluster, unsigned short sec_per_clus,
-                                    FATBootSector *boot_sector, unsigned int *file_size,
-                                    unsigned int *dir_entry_offset, int traverse_subdirs);
-unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
-                               unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
-                               unsigned short sec_per_clus, FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset);
-void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster, unsigned int file_size);
-void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
-                 unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename);
-
 typedef struct
 {
     unsigned char ignored[3];
@@ -92,6 +72,26 @@ typedef struct
     unsigned short fstClusLO;
     unsigned char name3[4];
 } __attribute__((packed)) LongDirEntry;
+
+unsigned short read_le16(const unsigned char *bytes);
+unsigned int read_le32(const unsigned char *bytes);
+void print_hex(const unsigned char *buffer, size_t size);
+void print_dir_entry(const unsigned char *entry);
+void print_fat_entries(FILE *fat_file, unsigned int fat_start, unsigned int fat_size, unsigned char fats, unsigned int cluster, unsigned short sector_size);
+void get_short_name(DirEntry *dir_entry, char *short_name);
+int match_filename(const char *filename1, const char *filename2);
+int split_path(const char *path, char components[][256]);
+unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsigned short sector_size,
+                                    unsigned short reserved_sectors, unsigned int fat_size,
+                                    unsigned int cluster, unsigned short sec_per_clus,
+                                    FATBootSector *boot_sector, unsigned int *file_size,
+                                    unsigned int *dir_entry_offset, int traverse_subdirs);
+unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
+                               unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
+                               unsigned short sec_per_clus, FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset);
+void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster, unsigned int file_size);
+void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
+                 unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename);
 
 unsigned short read_le16(const unsigned char *bytes)
 {
@@ -190,7 +190,7 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsign
                                     unsigned short reserved_sectors, unsigned int fat_size,
                                     unsigned int cluster, unsigned short sec_per_clus,
                                     FATBootSector *boot_sector, unsigned int *file_size,
-                                    unsigned int *dir_entry_offset, int traverse_subdirs)
+                                    unsigned int *dir_entry_offset, int is_last_component)
 {
     unsigned int cluster_size = sector_size * sec_per_clus;
     unsigned int data_start = (reserved_sectors + boot_sector->fats * fat_size) * sector_size;
@@ -227,26 +227,18 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsign
             {
                 if (match_filename(filename, long_name))
                 {
-                    unsigned int fstClusHI = read_le16(dir_entry.fstClusHI);
-                    unsigned int fstClusLO = read_le16(dir_entry.fstClusLO);
-                    unsigned int start_cluster = (fstClusHI << 16) | fstClusLO;
-                    *file_size = read_le32(dir_entry.file_size);
-                    *dir_entry_offset = ftell(fat_file) - sizeof(DirEntry);
-                    return start_cluster;
-                }
-                long_name[0] = '\0';
-                if (dir_entry.attr & 0x10 && !(dir_entry.attr & 0x08) && traverse_subdirs)
-                {
-                    unsigned int subdir_cluster = (read_le16(dir_entry.fstClusHI) << 16) | read_le16(dir_entry.fstClusLO);
-                    if (strncmp((char *)dir_entry.name, ".          ", 11) != 0 && strncmp((char *)dir_entry.name, "..         ", 11) != 0)
+                    if ((is_last_component && !(dir_entry.attr & 0x10)) ||
+                        (!is_last_component && (dir_entry.attr & 0x10)))
                     {
-                        unsigned int result = find_file_in_directory(fat_file, filename, sector_size,
-                                                                     reserved_sectors, fat_size, subdir_cluster,
-                                                                     sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
-                        if (result != 0)
-                            return result;
+                        unsigned int fstClusHI = read_le16(dir_entry.fstClusHI);
+                        unsigned int fstClusLO = read_le16(dir_entry.fstClusLO);
+                        unsigned int start_cluster = (fstClusHI << 16) | fstClusLO;
+                        *file_size = read_le32(dir_entry.file_size);
+                        *dir_entry_offset = ftell(fat_file) - sizeof(DirEntry);
+                        return start_cluster;
                     }
                 }
+                long_name[0] = '\0';
             }
             else
             {
@@ -254,23 +246,15 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsign
                 get_short_name(&dir_entry, short_name);
                 if (match_filename(filename, short_name))
                 {
-                    unsigned int fstClusHI = read_le16(dir_entry.fstClusHI);
-                    unsigned int fstClusLO = read_le16(dir_entry.fstClusLO);
-                    unsigned int start_cluster = (fstClusHI << 16) | fstClusLO;
-                    *file_size = read_le32(dir_entry.file_size);
-                    *dir_entry_offset = ftell(fat_file) - sizeof(DirEntry);
-                    return start_cluster;
-                }
-                if (dir_entry.attr & 0x10 && !(dir_entry.attr & 0x08) && traverse_subdirs)
-                {
-                    unsigned int subdir_cluster = (read_le16(dir_entry.fstClusHI) << 16) | read_le16(dir_entry.fstClusLO);
-                    if (strncmp((char *)dir_entry.name, ".          ", 11) != 0 && strncmp((char *)dir_entry.name, "..         ", 11) != 0)
+                    if ((is_last_component && !(dir_entry.attr & 0x10)) ||
+                        (!is_last_component && (dir_entry.attr & 0x10)))
                     {
-                        unsigned int result = find_file_in_directory(fat_file, filename, sector_size,
-                                                                     reserved_sectors, fat_size, subdir_cluster,
-                                                                     sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
-                        if (result != 0)
-                            return result;
+                        unsigned int fstClusHI = read_le16(dir_entry.fstClusHI);
+                        unsigned int fstClusLO = read_le16(dir_entry.fstClusLO);
+                        unsigned int start_cluster = (fstClusHI << 16) | fstClusLO;
+                        *file_size = read_le32(dir_entry.file_size);
+                        *dir_entry_offset = ftell(fat_file) - sizeof(DirEntry);
+                        return start_cluster;
                     }
                 }
             }
@@ -280,17 +264,20 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsign
 }
 
 unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
-                               unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
-                               unsigned short sec_per_clus, FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset)
+                               unsigned short sector_size, unsigned short reserved_sectors,
+                               unsigned int fat_size, unsigned short sec_per_clus,
+                               FATBootSector *boot_sector, unsigned int *file_size,
+                               unsigned int *dir_entry_offset)
 {
     unsigned int current_cluster = boot_sector->fat32.root_cluster;
-    int traverse_subdirs = 0;
-    if (path_count > 1)
-        traverse_subdirs = 1;
     for (int i = 0; i < path_count; i++)
     {
-        unsigned int found_cluster = find_file_in_directory(fat_file, path[i], sector_size, reserved_sectors, fat_size,
-                                                            current_cluster, sec_per_clus, boot_sector, file_size, dir_entry_offset, traverse_subdirs);
+        unsigned int found_cluster = find_file_in_directory(fat_file, path[i],
+                                                            sector_size, reserved_sectors,
+                                                            fat_size, current_cluster,
+                                                            sec_per_clus, boot_sector,
+                                                            file_size, dir_entry_offset,
+                                                            i == path_count - 1);
         if (found_cluster == 0)
             return 0;
         current_cluster = found_cluster;
@@ -466,12 +453,24 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     PRINT_DEBUG("\nDeleting Directory Entry:\n");
     unsigned int offset = dir_entry_offset;
     DirEntry dir_entry;
-    fseek(fat_file, offset, SEEK_SET);
-    fread(&dir_entry, sizeof(DirEntry), 1, fat_file);
-    if ((dir_entry.attr & 0x0F) == 0x0F)
+    int has_lfn = 0;
+    unsigned int check_offset = offset;
+    while (check_offset >= sizeof(DirEntry))
     {
+        check_offset -= sizeof(DirEntry);
+        if (fseek(fat_file, check_offset, SEEK_SET) != 0)
+            break;
+        if (fread(&dir_entry, sizeof(DirEntry), 1, fat_file) != 1)
+            break;
+        if ((dir_entry.attr & 0x0F) == 0x0F)
+        {
+            has_lfn = 1;
+            break;
+        }
+        else
+            break;
     }
-    else
+    if (has_lfn)
     {
         unsigned char ord;
         do
@@ -482,37 +481,35 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
                 perror("fseek failed while searching LFN entries");
                 break;
             }
-            fread(&dir_entry, sizeof(DirEntry), 1, fat_file);
+            if (fread(&dir_entry, sizeof(DirEntry), 1, fat_file) != 1)
+                break;
             ord = dir_entry.name[0];
-            unsigned char delete_marker = 0xE5;
-            fseek(fat_file, offset, SEEK_SET);
-            if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
+            if ((dir_entry.attr & 0x0F) == 0x0F)
             {
-                perror("Failed to delete");
-                break;
+                unsigned char delete_marker = 0xE5;
+                fseek(fat_file, offset, SEEK_SET);
+                if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
+                {
+                    perror("Failed to delete LFN entry");
+                    break;
+                }
+                unsigned char zeros[31] = {0};
+                if (fwrite(zeros, 1, sizeof(zeros), fat_file) != sizeof(zeros))
+                {
+                    perror("Failed to write zeros to LFN entry");
+                    break;
+                }
             }
-            unsigned char zeros[31] = {0};
-            if (fwrite(zeros, 1, 31, fat_file) != 31)
-            {
-                perror("Failed to write zero");
-                break;
-            }
-            PRINT_DEBUG("LFN directory entry at offset %u deleted.\n", offset);
-        } while ((ord & 0x40) == 0 && (dir_entry.attr == 0x0F));
-        fseek(fat_file, dir_entry_offset, SEEK_SET);
+        } while ((ord & 0x40) == 0 && (dir_entry.attr & 0x0F) == 0x0F);
     }
-    unsigned char delete_marker = 0xE5;
     fseek(fat_file, dir_entry_offset, SEEK_SET);
+    unsigned char delete_marker = 0xE5;
     if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
-    {
-        perror("Failed to delete");
-    }
+        perror("Failed to delete primary directory entry");
     unsigned char zeros[31] = {0};
-    if (fwrite(zeros, 1, 31, fat_file) != 31)
-    {
-        perror("Failed to write zero");
-    }
-    PRINT_DEBUG("Primary directory entry at offset %u deleted.\n", dir_entry_offset);
+    if (fwrite(zeros, 1, sizeof(zeros), fat_file) != sizeof(zeros))
+        perror("Failed to write zeros to primary directory entry");
+    PRINT_DEBUG("directory entry at offset 0x%x deleted.\n", dir_entry_offset);
     unsigned char dir_entry_content_after[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     fread(dir_entry_content_after, 1, 32, fat_file);
@@ -562,6 +559,11 @@ int main(int argc, char *argv[])
     PRINT_DEBUG("Root directory cluster: %u\n", boot_sector.fat32.root_cluster);
     PRINT_DEBUG("Volume label: %.11s\n", boot_sector.fat32.vol_label);
     PRINT_DEBUG("File system type: %.8s\n", boot_sector.fat32.fs_type);
+    PRINT_DEBUG("FAT1 offset: %u\n", boot_sector.reserved * read_le16(boot_sector.sector_size));
+    PRINT_DEBUG("Root directory offset: %u\n", (boot_sector.reserved + boot_sector.fats * boot_sector.fat32.length) *
+                                                       read_le16(boot_sector.sector_size) +
+                                                   (boot_sector.fat32.root_cluster - 2) *
+                                                       boot_sector.sec_per_clus * read_le16(boot_sector.sector_size));
     unsigned short sector_size = read_le16(boot_sector.sector_size);
     unsigned short reserved_sectors = boot_sector.reserved;
     unsigned int fat_size = boot_sector.fat32.length;
