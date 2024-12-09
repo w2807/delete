@@ -346,7 +346,7 @@ void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int 
         unsigned int fat_entry = read_le32(fat_entry_bytes) & 0x0FFFFFFF;
         next_cluster = fat_entry;
     }
-    PRINT_DEBUG("\nEOF\n");
+    PRINT_DEBUG("EOF\n");
 }
 
 void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
@@ -492,13 +492,13 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
                 fseek(fat_file, offset, SEEK_SET);
                 if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
                 {
-                    perror("Failed to delete LFN entry");
+                    perror("Failed to delete directory entry");
                     break;
                 }
                 unsigned char zeros[31] = {0};
                 if (fwrite(zeros, 1, sizeof(zeros), fat_file) != sizeof(zeros))
                 {
-                    perror("Failed to write zeros to LFN entry");
+                    perror("Failed to write to directory entry");
                     break;
                 }
             }
@@ -507,10 +507,10 @@ void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_
     fseek(fat_file, dir_entry_offset, SEEK_SET);
     unsigned char delete_marker = 0xE5;
     if (fwrite(&delete_marker, 1, 1, fat_file) != 1)
-        perror("Failed to delete primary directory entry");
+        perror("Failed to delete directory entry");
     unsigned char zeros[31] = {0};
     if (fwrite(zeros, 1, sizeof(zeros), fat_file) != sizeof(zeros))
-        perror("Failed to write zeros to primary directory entry");
+        perror("Failed to write to directory entry");
     PRINT_DEBUG("directory entry at offset 0x%x deleted.\n", dir_entry_offset);
     unsigned char dir_entry_content_after[32];
     fseek(fat_file, dir_entry_offset, SEEK_SET);
