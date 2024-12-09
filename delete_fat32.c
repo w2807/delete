@@ -563,9 +563,9 @@ int main(int argc, char *argv[])
     PRINT_DEBUG("File system type: %.8s\n", boot_sector.fat32.fs_type);
     PRINT_DEBUG("FAT1 offset: 0x%x\n", boot_sector.reserved * read_le16(boot_sector.sector_size));
     PRINT_DEBUG("Root directory offset: 0x%x\n", (boot_sector.reserved + boot_sector.fats * boot_sector.fat32.length) *
-                                                       read_le16(boot_sector.sector_size) +
-                                                   (boot_sector.fat32.root_cluster - 2) *
-                                                       boot_sector.sec_per_clus * read_le16(boot_sector.sector_size));
+                                                         read_le16(boot_sector.sector_size) +
+                                                     (boot_sector.fat32.root_cluster - 2) *
+                                                         boot_sector.sec_per_clus * read_le16(boot_sector.sector_size));
     unsigned short sector_size = read_le16(boot_sector.sector_size);
     unsigned short reserved_sectors = boot_sector.reserved;
     unsigned int fat_size = boot_sector.fat32.length;
