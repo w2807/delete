@@ -85,10 +85,12 @@ unsigned int find_file_in_directory(FILE *fat_file, const char *filename, unsign
                                     unsigned short reserved_sectors, unsigned int fat_size,
                                     unsigned int cluster, unsigned short sec_per_clus,
                                     FATBootSector *boot_sector, unsigned int *file_size,
-                                    unsigned int *dir_entry_offset, int traverse_subdirs);
+                                    unsigned int *dir_entry_offset, int is_last_component);
 unsigned int find_file_by_path(FILE *fat_file, char path[][256], int path_count,
-                               unsigned short sector_size, unsigned short reserved_sectors, unsigned int fat_size,
-                               unsigned short sec_per_clus, FATBootSector *boot_sector, unsigned int *file_size, unsigned int *dir_entry_offset);
+                               unsigned short sector_size, unsigned short reserved_sectors,
+                               unsigned int fat_size, unsigned short sec_per_clus,
+                               FATBootSector *boot_sector, unsigned int *file_size,
+                               unsigned int *dir_entry_offset);
 void read_file_content(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster, unsigned int file_size);
 void delete_file(FILE *fat_file, FATBootSector *boot_sector, unsigned int start_cluster,
                  unsigned int file_size, unsigned int dir_entry_offset, const char *target_filename);
